@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from d2l import torch as d2l
+from tokenizers import Tokenizer
 
 
 def get_key_padding_mask(X, valid_lens):
@@ -86,11 +87,13 @@ class GPT(nn.Module):
         for i in range(num_layers):
             self.blks.add_module(f'blk{i}', DecoderBlock(num_hiddens, num_heads, norm_shape, dropout))
         self.output = nn.Linear(num_hiddens, vocab_size)
+        self.atten_weights = []
 
     def forward(self, X, valid_lens):
         X = self.text_embedding(X) + self.pos_embedding.data[:, :X.shape[1], :]
         for blk in self.blks:
             X, atten_weights = blk(X, valid_lens)
+            self.atten_weights.append(atten_weights)
         output = self.output(X)
         return output
 
@@ -117,8 +120,11 @@ class TrainGPT(nn.Module):
                 loss = self.loss(output.permute(0, 2, 1), Y).sum()
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm(self.net.parameters(), 1.0)
+                nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
                 self.optimizer.step()
+
+                if num_iter % 100 == 0:
+                    torch.save(self.net.state_dict(), 'params.pkl')
 
                 # 测试部分
                 if test_iter is not None:
@@ -131,4 +137,15 @@ class TrainGPT(nn.Module):
                 num_iter += 1
             animator.add(epoch+1, [metric[1] / metric[0], metric[2] / metric[3]])
 
+
+def predict(input: str, net: GPT, tokenizer: Tokenizer, device=d2l.try_gpu()):
+
+    input_ids = torch.tensor([tokenizer.encode(input).ids], device=device)[:, :-1]
+    valid_lens = torch.tensor([len(input.split()) + 2], device=device)
+    output = torch.argmax(net(input_ids, valid_lens), dim=-1).squeeze(0)
+    print(input_ids)
+    print(output)
+    output_token = tokenizer.decode(output.tolist()).split()
+
+    return output_token
 
