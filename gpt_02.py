@@ -142,9 +142,9 @@ def predict(input: str, net: GPT, tokenizer: Tokenizer, device=d2l.try_gpu()):
 
     input_ids = torch.tensor([tokenizer.encode(input).ids], device=device)[:, :-1]
     valid_lens = torch.tensor([len(input.split()) + 2], device=device)
-    output = torch.argmax(net(input_ids, valid_lens), dim=-1).squeeze(0)
-    print(input_ids)
-    print(output)
+    output = net(input_ids, valid_lens)
+    print(output[0, -1, :])
+    output = torch.argmax(output, dim=-1).squeeze(0)
     output_token = tokenizer.decode(output.tolist()).split()
 
     return output_token
