@@ -2,7 +2,7 @@ from tokenizers import Tokenizer
 import torch
 from torch import nn
 from gpt_02 import GPT, TrainGPT
-from gpt_01_unuse import my_collate
+from gpt_01 import my_collate
 import pickle
 from d2l import torch as d2l
 

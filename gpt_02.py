@@ -103,7 +103,8 @@ class TrainGPT(nn.Module):
         self.optimizer = optimizer(self.net.parameters(), lr=self.lr)
         self.loss = loss
 
-    def fit(self, train_iter: torch.tensor, test_iter: torch.tensor, max_epochs, device=d2l.try_gpu()):
+    def fit(self, train_iter: torch.tensor, test_iter: torch.tensor, max_epochs, device=d2l.try_gpu(),
+            is_funtuning=False):
         metric = d2l.Accumulator(4)
         animator = d2l.Animator(xlabel='epoch', ylabel='loss', legend=['train', 'test'])
         self.net = self.net.to(device)
@@ -114,7 +115,10 @@ class TrainGPT(nn.Module):
                 Y = Y.to(device)
                 valid_lens_train = valid_lens_train.to(device)
                 output = self.net(X, valid_lens_train)
-                loss = self.loss(output.permute(0, 2, 1), Y).sum()
+                if is_funtuning == False:
+                    loss = self.loss(output.permute(0, 2, 1), Y).sum()
+                else:
+                    loss = self.loss(output, Y).sum()
                 self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm(self.net.parameters(), 1.0)
@@ -132,3 +136,15 @@ class TrainGPT(nn.Module):
             animator.add(epoch+1, [metric[1] / metric[0], metric[2] / metric[3]])
 
 
+class GPTClassify(nn.Module):
+    def __init__(self, vocab_size, num_hiddens, num_heads, norm_shape, num_layers, dropout=0, max_len=30, num_features=2):
+        super().__init__()
+        self.GPT = GPT(vocab_size, num_hiddens, num_heads, norm_shape, num_layers, dropout=dropout, max_len=max_len)
+        self.linear = nn.Linear(vocab_size, num_features)
+
+    def forward(self, X, valid_lens):
+        output = self.GPT(X, valid_lens)[:, -1, :]
+        # output.shape:batch_size, 1, vocab_size
+        output = self.linear(output).squeeze(1)
+        # output.shape:batch_size, num_features
+        return output
