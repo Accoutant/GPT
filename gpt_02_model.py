@@ -104,7 +104,8 @@ class TrainGPT(nn.Module):
         self.optimizer = optimizer(self.net.parameters(), lr=self.lr)
         self.loss = loss
 
-    def fit(self, train_iter: torch.tensor, test_iter: torch.tensor, max_epochs, device=d2l.try_gpu()):
+    def fit(self, train_iter: torch.tensor, test_iter: torch.tensor, max_epochs, device=d2l.try_gpu(),
+            is_funtunning=False):
         metric = d2l.Accumulator(4)
         animator = d2l.Animator(xlabel='epoch', ylabel='loss', legend=['train', 'test'])
         self.net = self.net.to(device)
@@ -115,10 +116,14 @@ class TrainGPT(nn.Module):
                 Y = Y.to(device)
                 valid_lens_train = valid_lens_train.to(device)
                 output = self.net(X, valid_lens_train)
-                loss = self.loss(output.permute(0, 2, 1), Y).sum()
+                # 判断是否为微调
+                if is_funtunning == False:
+                    loss = self.loss(output.permute(0, 2, 1), Y).sum()
+                else:
+                    loss = self.loss(output, Y).sum()
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm(self.net.parameters(), 1.0)
+                nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
                 self.optimizer.step()
 
                 # 测试部分

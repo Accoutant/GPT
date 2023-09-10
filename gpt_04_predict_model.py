@@ -1,8 +1,7 @@
 from tokenizers import Tokenizer
 import torch
-from gpt_02 import GPT, predict
+from gpt_02_model import GPT, predict
 from d2l import torch as d2l
-
 
 
 # 超参数

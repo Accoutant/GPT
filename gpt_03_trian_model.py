@@ -1,10 +1,10 @@
 from tokenizers import Tokenizer
 import torch
 from torch import nn
-from gpt_02 import GPT, TrainGPT
-from gpt_01 import my_collate
+from gpt_02_model import GPT, TrainGPT
+from gpt_01_process_data import my_collate
 import pickle
-from d2l import torch as d2l
+
 
 with open('train_iter.pkl', 'rb') as f:
     (train_iter, test_iter) = pickle.load(f)
