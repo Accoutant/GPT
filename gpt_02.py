@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from d2l import torch as d2l
-from tokenizers import Tokenizer
 
 
 def get_key_padding_mask(X, valid_lens):
@@ -87,13 +86,11 @@ class GPT(nn.Module):
         for i in range(num_layers):
             self.blks.add_module(f'blk{i}', DecoderBlock(num_hiddens, num_heads, norm_shape, dropout))
         self.output = nn.Linear(num_hiddens, vocab_size)
-        self.atten_weights = []
 
     def forward(self, X, valid_lens):
         X = self.text_embedding(X) + self.pos_embedding.data[:, :X.shape[1], :]
         for blk in self.blks:
             X, atten_weights = blk(X, valid_lens)
-            self.atten_weights.append(atten_weights)
         output = self.output(X)
         return output
 
@@ -120,11 +117,8 @@ class TrainGPT(nn.Module):
                 loss = self.loss(output.permute(0, 2, 1), Y).sum()
                 self.optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+                nn.utils.clip_grad_norm(self.net.parameters(), 1.0)
                 self.optimizer.step()
-
-                if num_iter % 100 == 0:
-                    torch.save(self.net.state_dict(), 'params.pkl')
 
                 # 测试部分
                 if test_iter is not None:
@@ -149,3 +143,15 @@ def predict(input: str, net: GPT, tokenizer: Tokenizer, device=d2l.try_gpu()):
 
     return output_token
 
+class GPTClassify(nn.Module):
+    def __init__(self, vocab_size, num_hiddens, num_heads, norm_shape, num_layers, dropout=0, max_len=30, num_features=2):
+        super().__init__()
+        self.GPT = GPT(vocab_size, num_hiddens, num_heads, norm_shape, num_layers, dropout=dropout, max_len=max_len)
+        self.linear = nn.Linear(vocab_size, num_features)
+
+    def forward(self, X, valid_lens):
+        output = self.GPT(X, valid_lens)[:, -1, :]
+        # output.shape:batch_size, 1, vocab_size
+        output = self.linear(output).squeeze(1)
+        # output.shape:batch_size, num_features
+        return output
