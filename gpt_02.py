@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from d2l import torch as d2l
+from tokenizers import Tokenizer
 
 
 def get_key_padding_mask(X, valid_lens):
@@ -142,6 +143,7 @@ def predict(input: str, net: GPT, tokenizer: Tokenizer, device=d2l.try_gpu()):
     output_token = tokenizer.decode(output.tolist()).split()
 
     return output_token
+
 
 class GPTClassify(nn.Module):
     def __init__(self, vocab_size, num_hiddens, num_heads, norm_shape, num_layers, dropout=0, max_len=30, num_features=2):
