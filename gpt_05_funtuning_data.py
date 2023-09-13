@@ -2,7 +2,6 @@ from datasets import load_dataset
 from tokenizers import Tokenizer
 import re
 from gpt_01_process_data import my_collate
-
 from torch.utils.data import DataLoader
 import pickle
 
@@ -34,9 +33,11 @@ if __name__ == "__main__":
     test_dataset = dataset['test'].map(split_input_and_target, num_proc=4, remove_columns='text')
     train_dataset = train_dataset.map(tokenize, num_proc=4, remove_columns=['input', 'target'])
     test_dataset = test_dataset.map(tokenize, num_proc=4, remove_columns=['input', 'target'])
-
-    tran_iter = DataLoader(train_dataset, shuffle=True, collate_fn=my_collate)
-    test_iter = DataLoader(test_dataset, shuffle=True, collate_fn=my_collate)
+    train_dataset = train_dataset.filter(lambda x: x['valid_lens'] != 0)
+    test_dataset = test_dataset.filter(lambda x: x['valid_lens'] != 0)
+    # 去除有效长度为0的数据，防止出现nan
+    tran_iter = DataLoader(train_dataset, shuffle=True, collate_fn=my_collate, batch_size=32)
+    test_iter = DataLoader(test_dataset, shuffle=True, collate_fn=my_collate, batch_size=32)
 
     with open("fine_tunning.pkl", 'wb') as f:
         pickle.dump((tokenizer, tran_iter, test_iter), f)

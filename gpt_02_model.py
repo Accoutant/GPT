@@ -114,10 +114,11 @@ class TrainGPT(nn.Module):
             for X, Y, valid_lens_train in train_iter:
                 X = X.to(device)
                 Y = Y.to(device)
+                print(valid_lens_train)
                 valid_lens_train = valid_lens_train.to(device)
                 output = self.net(X, valid_lens_train)
                 # 判断是否为微调
-                if is_funtunning == False:
+                if is_funtunning is not True:
                     loss = self.loss(output.permute(0, 2, 1), Y).sum()
                 else:
                     loss = self.loss(output, Y).sum()
@@ -134,6 +135,10 @@ class TrainGPT(nn.Module):
                 metric.add(len(X), loss.item(), accuracy, 1)
                 print('| epoch %d | iter %d/%d | loss %.4f | accuracy %.3f |' % (epoch + 1, num_iter,
                                                                  len(train_iter), metric[1]/metric[0], accuracy))
+                # 保存参数
+                if num_iter % 100 == 0:
+                    torch.save(self.net.state_dict(), "params.pkl")
+
                 num_iter += 1
             animator.add(epoch+1, [metric[1] / metric[0], metric[2] / metric[3]])
 
