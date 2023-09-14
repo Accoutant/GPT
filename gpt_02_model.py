@@ -106,7 +106,7 @@ class TrainGPT(nn.Module):
 
     def fit(self, train_iter: torch.tensor, test_iter: torch.tensor, max_epochs, device=d2l.try_gpu(),
             is_funtunning=False):
-        metric = d2l.Accumulator(4)
+        metric = d2l.Accumulator(2)
         animator = d2l.Animator(xlabel='epoch', ylabel='loss', legend=['train', 'test'])
         self.net = self.net.to(device)
         for epoch in range(max_epochs):
@@ -114,7 +114,6 @@ class TrainGPT(nn.Module):
             for X, Y, valid_lens_train in train_iter:
                 X = X.to(device)
                 Y = Y.to(device)
-                print(valid_lens_train)
                 valid_lens_train = valid_lens_train.to(device)
                 output = self.net(X, valid_lens_train)
                 # 判断是否为微调
@@ -126,21 +125,23 @@ class TrainGPT(nn.Module):
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
                 self.optimizer.step()
+                metric.add(len(X), loss.item())
 
-                # 测试部分
-                if test_iter is not None:
-                    accuracy = evaluate_accuracy(self.net, test_iter, device=device)
-                else:
-                    accuracy = 0
-                metric.add(len(X), loss.item(), accuracy, 1)
-                print('| epoch %d | iter %d/%d | loss %.4f | accuracy %.3f |' % (epoch + 1, num_iter,
-                                                                 len(train_iter), metric[1]/metric[0], accuracy))
+                print('| epoch %d | iter %d/%d | loss %.4f |' % (epoch + 1, num_iter,
+                                                                 len(train_iter), metric[1] / metric[0]))
                 # 保存参数
                 if num_iter % 100 == 0:
                     torch.save(self.net.state_dict(), "params.pkl")
 
                 num_iter += 1
-            animator.add(epoch+1, [metric[1] / metric[0], metric[2] / metric[3]])
+
+            # 测试部分
+            if test_iter is not None:
+                accuracy = evaluate_accuracy(self.net, test_iter, device=device)
+                animator.add(epoch + 1, [metric[1] / metric[0], accuracy])
+                print("accuracy:", accuracy)
+            else:
+                animator.add(epoch + 1, [metric[1] / metric[0], 0])
 
 
 def predict(input: str, net: GPT, tokenizer: Tokenizer, device=d2l.try_gpu()):
@@ -167,3 +168,18 @@ class GPTClassify(nn.Module):
         output = self.linear(output).squeeze(1)
         # output.shape:batch_size, num_features
         return output
+
+
+def predict_funtuning(net, text: str, tokenizer: Tokenizer, device=d2l.try_gpu()):
+    """predict the weather the text is positive or negative"""
+    # input_ids.shape: batch_size, max_lens
+    input_ids = torch.tensor(tokenizer.encode(text).ids, device=device).unsqueeze(0)
+    # valid_lens.shape: batch_size
+    valid_lens = torch.tensor([len(text.split()) + 1], device=device)
+    net = net.to(device)
+    output = net(input_ids, valid_lens)    # output.shape:batch_size, num_features
+    prediction = torch.argmax(output, dim=-1).squeeze(0)
+    if prediction == 0:
+        print("negative")
+    if prediction == 1:
+        print("positive")
